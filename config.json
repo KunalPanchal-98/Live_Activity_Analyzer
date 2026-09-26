@@ -1,0 +1,87 @@
+{
+  "camera": {
+    "source": 0,
+    "width": 1280,
+    "height": 720,
+    "fps": 30,
+    "buffer_size": 3
+  },
+  "detection": {
+    "model": "yolov8n.pt",
+    "confidence_threshold": 0.5,
+    "iou_threshold": 0.45,
+    "classes": [0],
+    "inference_size": 640
+  },
+  "tracking": {
+    "tracker_type": "bytetrack",
+    "track_thresh": 0.5,
+    "match_thresh": 0.4,
+    "track_buffer": 30,
+    "frame_rate": 30
+  },
+  "activity": {
+    "speed_threshold_walking": 1.5,
+    "speed_threshold_running": 4.0,
+    "loitering_duration_seconds": 30,
+    "stationary_frames_threshold": 15,
+    "zone_entry_exit_margin": 20
+  },
+  "anomaly": {
+    "enabled": true,
+    "contamination": 0.1,
+    "n_estimators": 100,
+    "max_samples": "auto",
+    "features": [
+      "speed",
+      "distance",
+      "direction_changes",
+      "zone_time",
+      "people_count",
+      "activity_transitions"
+    ],
+    "retrain_interval_frames": 500
+  },
+  "zones": {
+    "restricted_zones": [],
+    "loitering_zones": []
+  },
+  "alerts": {
+    "enabled": true,
+    "cooldown_seconds": 10,
+    "sound_enabled": false,
+    "screenshot_on_alert": true,
+    "alert_types": [
+      "restricted_zone",
+      "loitering",
+      "anomaly",
+      "crowd_threshold",
+      "sudden_movement"
+    ],
+    "crowd_threshold": 10
+  },
+  "database": {
+    "path": "database/activity.db",
+    "backup_interval_hours": 24
+  },
+  "storage": {
+    "screenshots_dir": "screenshots",
+    "reports_dir": "reports",
+    "logs_dir": "logs",
+    "max_screenshots_per_day": 1000
+  },
+  "gui": {
+    "update_interval_ms": 33,
+    "show_fps": true,
+    "show_detection_boxes": true,
+    "show_tracking_ids": true,
+    "show_zones": true,
+    "show_trajectories": true,
+    "theme": "dark"
+  },
+  "reporting": {
+    "auto_export_interval_hours": 24,
+    "export_format": "csv",
+    "include_charts": true
+  }
+}
