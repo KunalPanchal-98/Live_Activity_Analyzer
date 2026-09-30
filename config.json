@@ -25,7 +25,34 @@
     "speed_threshold_running": 4.0,
     "loitering_duration_seconds": 30,
     "stationary_frames_threshold": 15,
-    "zone_entry_exit_margin": 20
+    "zone_entry_exit_margin": 50,
+    "smoothing_window": 7,
+    "confirmation_frames": 3,
+    "minimum_displacement": 5.0,
+    "history_length": 30,
+    "loitering_variance_threshold": 100.0,
+    "stale_track_timeout": 5.0,
+    "enabled": true
+  },
+  "pose": {
+    "enabled": true,
+    "model": "models/yolov8n-pose.pt",
+    "confidence_threshold": 0.4,
+    "draw_skeleton": true,
+    "smoothing_window": 5
+  },
+  "gesture": {
+    "enabled": true,
+    "smoothing_window": 5,
+    "wrist_above_head_margin": 10,
+    "wrist_above_shoulder_margin": 30,
+    "elbow_angle_threshold": 90
+  },
+  "face": {
+    "enabled": true,
+    "confidence_threshold": 0.5,
+    "draw_boxes": true,
+    "model": "opencv_dnn"
   },
   "anomaly": {
     "enabled": true,

@@ -33,10 +33,14 @@
 - Detects people and objects using the **YOLOv8** deep-learning model.
 - Tracks each detected person with a persistent ID using a custom **ByteTrack**-style tracker.
 - Analyses each person's activity (standing, walking, running, entering, leaving, loitering) through **rule-based computer-vision logic**.
+- Estimates **pose/posture** (standing, sitting, crouching, lying, bending, fallen, raising hand) using **YOLOv8-Pose** keypoint estimation.
+- Recognizes **hand gestures** (left/right/both hands raised, hands down) from pose keypoints.
+- Detects **faces** and associates them with tracked persons using **YuNet**.
+- Computes **People Analytics** (posture/gesture distribution, face count, track duration, movement speed).
 - Detects anomalous movement patterns using a **Scikit-learn IsolationForest** machine-learning model.
-- Raises real-time alerts for restricted-zone violations, loitering, crowd thresholds, and anomalies.
+- Raises real-time alerts for restricted-zone violations, loitering, crowd thresholds, anomalies, and falls.
 - Stores all events in an **SQLite** database.
-- Displays a live **Tkinter** dashboard with statistics and event history.
+- Displays a live **Tkinter** dashboard with statistics, event history, and live video.
 - Generates **PDF/CSV/JSON** activity reports using Pandas and Matplotlib.
 
 ---
@@ -45,7 +49,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                         LIVE ACTIVITY ANALYZER                      │
+│                      LIVE ACTIVITY ANALYZER                         │
 │                     System Architecture Diagram                     │
 └─────────────────────────────────────────────────────────────────────┘
 
@@ -56,33 +60,34 @@
   └──────────────┘     └──────────────┘     └──────────┬───────────┘
                                                         │ Detections
                                                         ▼
-                                            ┌──────────────────────┐
-                                            │  ByteTrack Tracker   │
-                                            │  (Layer 3 — Tracking)│
-                                            └──────────┬───────────┘
-                                                        │ Tracks + IDs
-                              ┌─────────────────────────┼──────────────────┐
-                              ▼                          ▼                  ▼
-                  ┌───────────────────┐   ┌──────────────────┐  ┌──────────────────┐
-                  │  Activity Analyzer│   │  Zone Manager    │  │ Anomaly Detector │
-                  │  (Layer 4 —       │   │  Restricted Zones│  │ IsolationForest  │
-                  │   Rule-based CV)  │   │  Loitering       │  │ (Layer 5 — ML)   │
-                  └────────┬──────────┘   └───────┬──────────┘  └────────┬─────────┘
-                           │                      │                       │
-                           └──────────────────────┼───────────────────────┘
-                                                  │  Events / Alerts
-                                                  ▼
-                                      ┌───────────────────────┐
-                                      │    Alert Manager      │
-                                      │  Screenshots, Cooldown│
-                                      └──────────┬────────────┘
-                                                  │
-                              ┌───────────────────┼─────────────────┐
-                              ▼                   ▼                  ▼
-                  ┌───────────────────┐ ┌─────────────────┐ ┌───────────────────┐
-                  │  SQLite Database  │ │ Statistics Mgr  │ │   Tkinter GUI     │
-                  │  (Layer 8)        │ │ Pandas/Matplotlib│ │   Dashboard       │
-                  └───────────────────┘ └─────────────────┘ └───────────────────┘
+                                              ┌──────────────────────┐
+                                              │  ByteTrack Tracker   │
+                                              │  (Layer 3 — Tracking)│
+                                              └──────────┬───────────┘
+                                                         │ Tracks + IDs
+                               ┌─────────────────────────┼──────────────────┐
+                               ▼                          ▼                  ▼
+                    ┌───────────────────┐   ┌──────────────────┐  ┌──────────────────┐
+                    │  Activity Analyzer│   │  Zone Manager    │  │ Anomaly Detector │
+                    │  (Layer 4 —       │   │  Restricted Zones│  │ IsolationForest  │
+                    │   Rule-based CV)  │   │  Loitering       │  │ (Layer 5 — ML)   │
+                    └────────┬──────────┘   └───────┬──────────┘  └────────┬─────────┘
+                             │                      │                       │
+               ┌─────────────┼──────────────────────┼───────────────────────┘
+               ▼             ▼                      ▼                       ▼
+       ┌───────────────┐ ┌────────────────┐ ┌─────────────────┐ ┌───────────────┐
+       │ Pose Estimator│ │ Hand Gesture   │ │ Face Detector   │ │People Analytics│
+       │ (Layer 4b)    │ │ Analyzer       │ │ (Layer 4d)      │ │ (Layer 4e)    │
+       │ YOLOv8-Pose   │ │ (Layer 4c)     │ │ YuNet           │ │ StatisticsMgr │
+       └───────┬───────┘ └───────┬────────┘ └───────┬─────────┘ └───────┬───────┘
+               │                 │                  │                   │
+               └─────────────────┼──────────────────┼───────────────────┘
+                                 ▼                 ▼                   ▼
+                         ┌───────────────────┐ ┌─────────────────┐ ┌───────────────┐
+                         │  Alert Manager    │ │ SQLite Database │ │ Tkinter GUI   │
+                         │ Screenshots,      │ │ Sessions,       │ │ Dashboard     │
+                         │ Cooldown          │ │ Events, Logs    │ │ Real-time     │
+                         └───────────────────┘ └─────────────────┘ └───────────────┘
 ```
 
 ### Processing Layers
@@ -93,6 +98,10 @@
 | 2 | Object/Person Detection | YOLOv8 (Ultralytics) | **Deep Learning / AI** |
 | 3 | Person Tracking | Custom ByteTrack (NumPy IoU) | Tracking Algorithm |
 | 4 | Activity Analysis | Rule-based movement logic | **Rule-based CV** (not AI) |
+| 4b | Pose Estimation | YOLOv8-Pose (Ultralytics) | **Deep Learning / AI** |
+| 4c | Hand Gesture | Keypoint geometry rules | **Rule-based CV** |
+| 4d | Face Detection | YuNet (OpenCV) | **Deep Learning / AI** |
+| 4e | People Analytics | Track metadata aggregation | Analytics/Statistics |
 | 5 | Anomaly Detection | Scikit-learn IsolationForest | **Machine Learning** |
 | 6 | Data Analysis | Pandas DataFrames | Data Science |
 | 7 | Visualisation | Matplotlib charts | Data Visualisation |
@@ -107,19 +116,15 @@
 |---|---|---|
 | Python | 3.x | Core language |
 | OpenCV (`cv2`) | 5.0+ | Video capture, image processing, annotation |
-| Ultralytics YOLO | 8.x | AI-based object & person detection |
+| Ultralytics YOLO | 8.x | AI-based object & person detection, pose estimation |
 | NumPy | 2.x | Numerical arrays, IoU calculation |
 | Scikit-learn | 1.x | IsolationForest anomaly detection |
 | Pandas | 2.x | Activity data analysis & DataFrame operations |
 | Matplotlib | 3.x | Activity charts and visualisations |
 | Tkinter | stdlib | Desktop GUI dashboard |
 | SQLite3 | stdlib | Persistent event storage |
-| threading | stdlib | Non-blocking UI (camera in background thread) |
 | Pillow (PIL) | 10+ | Frame→Tkinter image conversion |
-| pathlib | stdlib | Cross-platform file paths |
-| logging | stdlib | Application logging |
-| json | stdlib | Configuration file |
-| csv | stdlib | Report export |
+| openpyxl | 3.1+ | Excel report export |
 
 **All technologies are free and open-source. No paid APIs are used.**
 
@@ -158,6 +163,34 @@
 
 > **Note:** These are rule-based computer-vision decisions, **not** deep learning.
 
+### ✅ Pose/Posture Estimation (YOLOv8-Pose)
+- 17 COCO keypoints per person
+- 7 posture types: Standing, Sitting, Crouching, Lying Down, Bending, Fallen, Raising Hand
+- Temporal smoothing (majority voting, default 5 frames)
+- Skeleton rendering with 19 bone connections
+- Fall detection alert integration
+
+### ✅ Hand Gesture Recognition
+- 5 gestures: Left Hand Raised, Right Hand Raised, Both Hands Raised, Hands Down, Unknown
+- Left/Right independent detection
+- Temporal smoothing (majority voting, default 5 frames)
+- Invalid keypoint (0,0) rejection
+
+### ✅ Face Detection (YuNet)
+- OpenCV YuNet model (ONNX, 232 KB)
+- Face bounding boxes with confidence scores
+- Face-to-track association via IoU + containment
+- Per-person face detection status (Yes/No)
+
+### ✅ People Analytics
+- **Posture Distribution**: Pie chart of postures per frame
+- **Gesture Distribution**: Pie chart of gestures per frame
+- **Face Detection Count**: Faces detected per frame
+- **Unique Track Count**: Active tracks per frame
+- **Average Track Duration**: Mean track lifetime (seconds)
+- **Average Movement Speed**: Mean speed in px/s
+- **Session Accumulation**: Cumulative posture/gesture/face counts, unique tracks, avg duration/speed
+
 ### ✅ ML Anomaly Detection (IsolationForest)
 Features used:
 - Movement speed
@@ -166,18 +199,20 @@ Features used:
 - Direction changes
 - Zone dwell time
 - Activity transitions
+- People count
 
 Returns: `NORMAL` or `ANOMALY`
 
 ### ✅ Restricted-Zone Detection
-- User-defined polygon zones on the video frame
-- Instant alert when a tracked person enters
+- User-defined polygon zones
+- Instant alert when tracked person enters
 - Visual highlight + event record + optional screenshot
 
 ### ✅ Real-Time Alert System
 - Alert types: Restricted Zone, Loitering, Anomaly, Crowd Threshold, Possible Fall
-- Cooldown/debounce prevents repeated alerts for the same event
+- Cooldown/debounce prevents repeated alerts
 - Event screenshots saved as `screenshots/YYYY-MM-DD/timestamp_person-ID_event.jpg`
+- Event log in SQLite database
 
 ### ✅ SQLite Database
 - Sessions, persons, events, activity_logs, statistics tables
@@ -189,28 +224,38 @@ Returns: `NORMAL` or `ANOMALY`
 - People detected over time line chart
 - Anomalies over time bar chart
 - Hourly activity bar chart
-- Event frequency chart
+- Event frequency bar chart
+- **Posture Distribution** (UPGRADE 10)
+- **Gesture Distribution** (UPGRADE 10)
+- All charts as base64 strings or saved PNG files
 
 ### ✅ Tkinter Dashboard
-- Live annotated video feed
-- System status panel (FPS, resolution, people count)
-- Alert panel
-- Event history log
-- Full controls (Start/Stop/Pause/Resume/Load Video/IP Camera/Settings/Export)
+- Dark surveillance theme
+- Top navigation & telemetry bar
+- 10 sidebar views: Dashboard, Live Monitor, People, Activities, Anomalies, Statistics, Events, Camera, Settings, About
+- 7 Metric Cards (People, Active Tracks, Objects, FPS, Camera Status, Current Activity, Anomalies)
+- Live video with aspect-ratio letterboxing, BGR→RGB correction
+- Camera state placeholders (SEARCHING, CONNECTING, RECONNECTING, NO_CAMERA, DISCONNECTED, ERROR)
+- Activity mode selector (Auto Detect, Body Activity, Movement, Posture, Hand Gesture, Face)
+- Real-time event log and tracking tables
 
 ### ✅ Report Export
 - CSV event log
 - JSON structured report
+- Excel workbook (openpyxl)
 - Daily summary with Pandas
+- Chart images (PNG)
 
 ### ✅ Configuration System
 - `config.json` — all thresholds and paths configurable
 - Dot-notation API: `config.get("detection.confidence_threshold")`
-- No hard-coded magic numbers in the source
+- No hard-coded magic numbers in source
 
 ### ✅ Testing
-- **48 tests** across 11 test files (all passing)
+- **177 tests** across 19 test files
 - Unit, module-level, and end-to-end integration tests
+- Deterministic tests using synthetic data (no physical camera required)
+- 100% pass rate
 
 ---
 
@@ -222,49 +267,58 @@ Live_Activity_Analyzer/
 ├── app/                        # Core application modules
 │   ├── __init__.py
 │   ├── config_manager.py       # Singleton config with dot-notation API
-│   ├── camera_manager.py       # OpenCV video capture (threaded)
+│   ├── camera_manager.py       # OpenCV video capture (threaded, multi-source)
 │   ├── detector.py             # YOLOv8 object detection
-│   ├── tracker.py              # Custom ByteTrack-style person tracker
+│   ├── tracker.py              # ByteTrack-style person tracking
 │   ├── activity_analyzer.py    # Rule-based activity classification
+│   ├── pose_estimator.py       # YOLOv8-Pose + Hand Gesture Analyzer
+│   ├── face_detector.py        # YuNet face detection + track association
 │   ├── anomaly_detector.py     # Scikit-learn IsolationForest
-│   ├── zone_manager.py         # Restricted zones & loitering logic
-│   ├── alert_manager.py        # Alert generation, cooldown, screenshots
-│   ├── database.py             # SQLite3 database manager
-│   ├── statistics.py           # Pandas/Matplotlib statistics
-│   ├── report_generator.py     # CSV/JSON report export
-│   ├── video_processor.py      # Pipeline orchestrator
-│   └── gui.py                  # Tkinter dashboard
+│   ├── zone_manager.py         # Polygon zones, violations, loitering
+│   ├── alert_manager.py        # Alerts with cooldown, screenshots
+│   ├── database.py             # SQLite3 singleton manager
+│   ├── statistics.py           # Pandas/Matplotlib analytics + People Analytics
+│   ├── report_generator.py     # CSV/Excel/JSON report export
+│   └── gui.py                  # Tkinter dashboard (10 views, dark theme)
 │
-├── tests/                      # Pytest test suite
-│   ├── test_config.py          # Phase 1 — config (7 tests)
-│   ├── test_environment.py     # Phase 1 — environment (4 tests)
-│   ├── test_camera.py          # Phase 2 — camera (4 tests)
-│   ├── test_detector.py        # Phase 3 — detector (4 tests)
-│   ├── test_tracker.py         # Phase 4 — tracker (4 tests)
-│   ├── test_activity.py        # Phase 5 — activity (5 tests)
-│   ├── test_zones.py           # Phase 6 — zones (3 tests)
-│   ├── test_anomaly.py         # Phase 7 — anomaly (3 tests)
-│   ├── test_database.py        # Phase 8 — database (3 tests)
-│   ├── test_statistics.py      # Phase 9/10 — statistics (3 tests)
-│   ├── test_alerts_reports.py  # Phase 11 — alerts/reports (3 tests)
-│   └── test_integration.py     # Phase 12 — integration (5 tests)
+├── tests/                      # Pytest test suite (177 tests)
+│   ├── test_config.py
+│   ├── test_camera.py
+│   ├── test_camera_discovery.py
+│   ├── test_camera_reconnect.py
+│   ├── test_detector.py
+│   ├── test_tracker.py
+│   ├── test_activity.py
+│   ├── test_activity_engine.py
+│   ├── test_anomaly.py
+│   ├── test_zones.py
+│   ├── test_alerts_reports.py
+│   ├── test_database.py
+│   ├── test_statistics.py
+│   ├── test_integration.py
+│   ├── test_environment.py
+│   ├── test_pose.py
+│   ├── test_gesture.py
+│   ├── test_face.py
+│   └── test_gui.py
 │
 ├── docs/                       # Academic documentation
-│   ├── abstract.md             # Project abstract
-│   ├── methodology.md          # Technical methodology
-│   ├── architecture.md         # Architecture details
-│   └── viva_qna.md             # Viva voce Q&A guide
+│   ├── abstract.md
+│   ├── methodology.md
+│   ├── architecture.md
+│   └── viva_qna.md
 │
 ├── models/                     # Pre-trained model files
-│   └── yolov8n.pt              # YOLOv8 Nano model (downloaded automatically)
+│   ├── yolov8n.pt              # YOLOv8 Nano (6.5 MB)
+│   ├── yolov8n-pose.pt         # YOLOv8-Pose Nano (6.8 MB)
+│   └── face_detection_yunet_2023mar.onnx  # YuNet face detector (232 KB)
 │
 ├── data/                       # Test data
-│   ├── generate_test_video.py  # Generates synthetic CCTV test video
-│   └── test_cctv.mp4           # Synthetic test video (640×480, 30fps)
+│   ├── generate_test_video.py
+│   └── test_cctv.mp4
 │
 ├── screenshots/                # Event screenshots (auto-created)
 │   └── YYYY-MM-DD/
-│       └── timestamp_personID_event.jpg
 │
 ├── reports/                    # Exported reports (auto-created)
 │
@@ -273,6 +327,11 @@ Live_Activity_Analyzer/
 ├── config.json                 # Application configuration
 ├── requirements.txt            # Python dependencies
 ├── main.py                     # Application entry point
+├── PROJECT_STATE.md            # Detailed project history
+├── upgrade_7_report.md         # UPGRADE 7 documentation
+├── upgrade_8_report.md         # UPGRADE 8 documentation
+├── upgrade_9_report.md         # UPGRADE 9 documentation
+├── upgrade_10_report.md        # UPGRADE 10 documentation
 └── README.md                   # This file
 ```
 
@@ -314,7 +373,7 @@ python3 data/generate_test_video.py
 
 ### Step 5: Download the YOLO model (automatic on first run)
 
-The YOLOv8 Nano model (`yolov8n.pt`) is downloaded automatically from Ultralytics on the first run. It can also be placed manually in the `models/` directory.
+The YOLOv8 Nano model (`yolov8n.pt`) and Pose model (`yolov8n-pose.pt`) are downloaded automatically from Ultralytics on the first run. They can also be placed manually in the `models/` directory.
 
 ---
 
@@ -337,16 +396,23 @@ cfg.set("detection.confidence_threshold", 0.6)
 
 | Section | Key | Default | Description |
 |---|---|---|---|
-| `camera` | `source` | `"webcam"` | Camera type |
+| `camera` | `source` | `0` | Camera type |
 | `camera` | `device_id` | `0` | Webcam device number |
 | `detection` | `confidence_threshold` | `0.5` | YOLO confidence cutoff |
-| `detection` | `model_path` | `"models/yolov8n.pt"` | Model file location |
-| `activity` | `speed_threshold_walking` | `5.0` | px/s threshold for walking |
-| `activity` | `speed_threshold_running` | `15.0` | px/s threshold for running |
+| `detection` | `model_path` | `models/yolov8n.pt` | Model file location |
+| `activity` | `speed_threshold_walking` | `1.5` | px/s threshold for walking |
+| `activity` | `speed_threshold_running` | `4.0` | px/s threshold for running |
 | `activity` | `loitering_duration_seconds` | `30` | Seconds before loitering alert |
 | `anomaly` | `contamination` | `0.1` | IsolationForest contamination rate |
-| `alerts` | `cooldown_seconds` | `30` | Minimum seconds between same-type alerts |
-| `alerts` | `crowd_threshold` | `5` | Person count that triggers crowd alert |
+| `alerts` | `cooldown_seconds` | `10` | Minimum seconds between same-type alerts |
+| `alerts` | `crowd_threshold` | `10` | Person count that triggers crowd alert |
+| `pose` | `enabled` | `true` | Enable pose estimation |
+| `pose` | `model` | `models/yolov8n-pose.pt` | Pose model path |
+| `gesture` | `enabled` | `true` | Enable gesture recognition |
+| `gesture` | `smoothing_window` | `5` | Temporal smoothing frames |
+| `face` | `enabled` | `true` | Enable face detection |
+| `face` | `confidence_threshold` | `0.5` | Face detection confidence |
+| `statistics` | `update_interval` | `5.0` | Stats update interval (seconds) |
 
 ---
 
@@ -360,15 +426,12 @@ python3 main.py
 ```
 
 ### Use webcam
-
 Click **Start Camera** in the GUI (uses device 0 by default).
 
 ### Use a video file
-
 Click **Load Video** and select a `.mp4` / `.avi` file.
 
 ### Connect an IP camera
-
 Click **Connect IP Camera** and enter the RTSP URL:
 ```
 rtsp://username:password@192.168.1.100:554/stream
@@ -389,12 +452,16 @@ python3 -m pytest tests/ -v
 ```bash
 python3 -m pytest tests/test_integration.py -v   # Integration tests
 python3 -m pytest tests/test_anomaly.py -v       # Anomaly detection
+python3 -m pytest tests/test_pose.py -v          # Pose/Posture tests
+python3 -m pytest tests/test_gesture.py -v       # Gesture tests
+python3 -m pytest tests/test_face.py -v          # Face detection tests
+python3 -m pytest tests/test_gui.py -v           # GUI tests
 ```
 
 ### Expected result
 
 ```
-48 passed in ~30s
+177 passed in ~XXs
 ```
 
 ---
@@ -407,15 +474,16 @@ python3 -m pytest tests/test_anomaly.py -v       # Anomaly detection
 | `camera_manager.py` | `CameraManager` | Threaded OpenCV video capture |
 | `detector.py` | `ObjectDetector` | YOLOv8 inference and annotation |
 | `tracker.py` | `PersonTracker` | ByteTrack IoU tracking, speed/direction |
-| `activity_analyzer.py` | `ActivityAnalyzer` | Rule-based standing/walking/running etc. |
-| `anomaly_detector.py` | `AnomalyDetector` | IsolationForest ML anomaly scoring |
+| `activity_analyzer.py` | `ActivityAnalyzer` | Rule-based activity classification |
+| `pose_estimator.py` | `PoseEstimator` | YOLOv8-Pose keypoints, posture, gestures |
+| `face_detector.py` | `FaceDetector` | YuNet face detection + track association |
+| `anomaly_detector.py` | `AnomalyDetector` | IsolationForest behavioral anomalies |
 | `zone_manager.py` | `ZoneManager` | Polygon zones, violations, loitering |
 | `alert_manager.py` | `AlertManager` | Alert generation, cooldown, screenshots |
 | `database.py` | `DatabaseManager` | SQLite3 CRUD operations |
-| `statistics.py` | `StatisticsManager` | Pandas analysis + Matplotlib charts |
-| `report_generator.py` | `ReportGenerator` | CSV / JSON export |
-| `video_processor.py` | `VideoProcessor` | Pipeline orchestrator |
-| `gui.py` | `LiveActivityGUI` | Tkinter dashboard |
+| `statistics.py` | `StatisticsManager` | Pandas analytics, Matplotlib charts, People Analytics |
+| `report_generator.py` | `ReportGenerator` | CSV/Excel/JSON report export |
+| `gui.py` | `ApplicationGUI` | Tkinter surveillance dashboard |
 
 ---
 
@@ -502,6 +570,9 @@ The screenshot path is stored in the `events` table for reference.
 | Activity analysis | **Rule-based** | Speed/position thresholds, no learning |
 | IsolationForest | **Machine Learning** | Unsupervised anomaly detection |
 | Pandas/Matplotlib | **Data Science** | Analysis and visualisation, no ML |
+| YOLOv8-Pose | **AI (Deep Learning)** | 17-keypoint skeletal estimation |
+| Hand Gesture | **Rule-based** | Keypoint geometry, no learning |
+| YuNet Face Detection | **AI (Deep Learning)** | CNN face detector |
 
 ### Key concepts demonstrated
 
@@ -513,23 +584,40 @@ The screenshot path is stored in the `events` table for reference.
 - **Database Design** — Normalised SQLite schema with foreign keys
 - **Software Design** — Singleton, Observer/callback, pipeline patterns
 - **Data Analysis** — Pandas DataFrames for event aggregation
+- **Pose Estimation** — 17-keypoint skeletal geometry
+- **Gesture Recognition** — Keypoint-based hand state classification
+- **Face Detection** — YuNet CNN with track association
 
 ---
 
 ## 14. Limitations & Future Work
 
 ### Current Limitations
+
 - Activity analysis is rule-based: thresholds may need tuning for different camera heights/angles.
 - Anomaly detection requires enough historical frames to train the IsolationForest model meaningfully.
 - No person re-identification (ReID): if a person leaves and re-enters the frame, they receive a new tracking ID.
 - RTSP camera support depends on OpenCV build and network conditions.
+- Face detection optimized for frontal faces; profile detection limited.
+- Gesture recognition limited to hand-raised states; no finger-level gestures.
+- Posture classification uses 2D keypoints; accuracy affected by camera angle/occlusion.
 
 ### Future Work
+
 - Add deep-learning-based action recognition (e.g., SlowFast, PoseNet).
 - Add person re-identification using appearance descriptors.
 - Add GPU acceleration for faster YOLO inference on large video streams.
-- Add web-based dashboard using Flask (optional frontend upgrade).
+- Add web-based dashboard using Flask/FastAPI (optional frontend upgrade).
 - Deploy to Raspberry Pi or Jetson Nano for embedded CCTV use.
+- Add classroom/room mode with seat occupancy analytics.
+- Add anomaly explainability (feature attribution).
+- Add age/gender estimation from face detection.
+
+---
+
+## License
+
+This project is developed for academic purposes as a B.Tech CSE project.
 
 ---
 

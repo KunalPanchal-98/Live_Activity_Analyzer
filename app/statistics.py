@@ -41,6 +41,13 @@ class StatSnapshot:
     restricted_zone_events: int
     avg_activity_duration: float
     crowd_level: int
+    # UPGRADE 10: People Analytics
+    posture_distribution: Dict[str, int] = None
+    gesture_distribution: Dict[str, int] = None
+    face_detected_count: int = 0
+    unique_tracks: int = 0
+    avg_track_duration: float = 0.0
+    avg_movement_speed: float = 0.0
 
 
 class StatisticsManager:
@@ -71,7 +78,14 @@ class StatisticsManager:
             "event_counts": {},
             "zone_events": {},
             "anomaly_count": 0,
-            "start_time": time.time()
+            "start_time": time.time(),
+            # UPGRADE 10: People Analytics
+            "posture_counts": {},
+            "gesture_counts": {},
+            "face_detected_total": 0,
+            "unique_track_ids": set(),
+            "track_durations": [],
+            "track_speeds": [],
         }
 
     def set_session(self, session_id: int) -> None:
@@ -80,7 +94,8 @@ class StatisticsManager:
         self._session_stats["start_time"] = time.time()
 
     def update(self, tracks: List, activities: Dict[int, str],
-               events: List, anomalies: List, timestamp: float) -> None:
+               events: List, anomalies: List, timestamp: float,
+               poses: Optional[List] = None, faces: Optional[List] = None) -> None:
         """Update statistics with current frame data."""
         if not self._enabled:
             return
@@ -107,6 +122,42 @@ class StatisticsManager:
                     etype = str(type(event))
                 event_counts[etype] = event_counts.get(etype, 0) + 1
 
+            # UPGRADE 10: Compute People Analytics
+            posture_counts = {}
+            gesture_counts = {}
+            face_detected = 0
+            unique_tracks = len(tracks)
+            track_durations = []
+            track_speeds = []
+
+            # Process tracks for analytics
+            for track in tracks:
+                # Posture distribution
+                posture = getattr(track, "posture", "Unknown")
+                if posture != "Unknown":
+                    posture_counts[posture] = posture_counts.get(posture, 0) + 1
+
+                # Gesture distribution
+                gesture = getattr(track, "gesture", "Unknown")
+                if gesture != "Unknown":
+                    gesture_counts[gesture] = gesture_counts.get(gesture, 0) + 1
+
+                # Face detection count
+                if getattr(track, "face_detected", False):
+                    face_detected += 1
+
+                # Track duration
+                if hasattr(track, "first_seen") and track.first_seen > 0:
+                    duration = time.time() - track.first_seen
+                    track_durations.append(duration)
+
+                # Track speed
+                if hasattr(track, "speed") and track.speed > 0:
+                    track_speeds.append(track.speed)
+
+            avg_duration = sum(track_durations) / len(track_durations) if track_durations else 0.0
+            avg_speed = sum(track_speeds) / len(track_speeds) if track_speeds else 0.0
+
             # Create snapshot
             snapshot = StatSnapshot(
                 timestamp=timestamp,
@@ -121,13 +172,20 @@ class StatisticsManager:
                 anomaly_count=len(anomalies),
                 restricted_zone_events=event_counts.get("restricted_zone", 0),
                 avg_activity_duration=0.0,  # Would need DB query
-                crowd_level=len(tracks)
+                crowd_level=len(tracks),
+                # UPGRADE 10: People Analytics
+                posture_distribution=posture_counts if posture_counts else {},
+                gesture_distribution=gesture_counts if gesture_counts else {},
+                face_detected_count=face_detected,
+                unique_tracks=unique_tracks,
+                avg_track_duration=sum(track_durations) / len(track_durations) if track_durations else 0.0,
+                avg_movement_speed=sum(track_speeds) / len(track_speeds) if track_speeds else 0.0
             )
 
             self._snapshots.append(snapshot)
-            self._update_session_stats(activities, events, anomalies)
+            self._update_session_stats(activities, events, anomalies, tracks)
 
-    def _update_session_stats(self, activities: Dict, events: List, anomalies: List) -> None:
+    def _update_session_stats(self, activities: Dict, events: List, anomalies: List, tracks: List) -> None:
         """Update running session statistics."""
         for act in activities.values():
             self._session_stats["activity_counts"][act] = \
@@ -144,6 +202,30 @@ class StatisticsManager:
                 self._session_stats["event_counts"].get(etype, 0) + 1
 
         self._session_stats["anomaly_count"] = len(anomalies)
+
+        # UPGRADE 10: Update people analytics
+        for track in tracks:
+            posture = getattr(track, "posture", "Unknown")
+            if posture != "Unknown":
+                self._session_stats["posture_counts"][posture] = \
+                    self._session_stats["posture_counts"].get(posture, 0) + 1
+
+            gesture = getattr(track, "gesture", "Unknown")
+            if gesture != "Unknown":
+                self._session_stats["gesture_counts"][gesture] = \
+                    self._session_stats["gesture_counts"].get(gesture, 0) + 1
+
+            if getattr(track, "face_detected", False):
+                self._session_stats["face_detected_total"] += 1
+
+            if hasattr(track, "track_id"):
+                self._session_stats["unique_track_ids"].add(track.track_id)
+
+            if hasattr(track, "first_seen") and track.first_seen > 0:
+                self._session_stats["track_durations"].append(time.time() - track.first_seen)
+
+            if hasattr(track, "speed") and track.speed > 0:
+                self._session_stats["track_speeds"].append(track.speed)
 
     def record_detection(self) -> None:
         """Record a new person detection."""
@@ -173,7 +255,16 @@ class StatisticsManager:
                 "activity_distribution": self._session_stats["activity_counts"].copy(),
                 "event_distribution": self._session_stats["event_counts"].copy(),
                 "anomaly_count": self._session_stats["anomaly_count"],
-                "snapshots_collected": len(self._snapshots)
+                "snapshots_collected": len(self._snapshots),
+                # UPGRADE 10: People Analytics
+                "posture_distribution": self._session_stats.get("posture_counts", {}),
+                "gesture_distribution": self._session_stats.get("gesture_counts", {}),
+                "face_detected_total": self._session_stats.get("face_detected_total", 0),
+                "unique_tracks": len(self._session_stats.get("unique_track_ids", set())),
+                "avg_track_duration": sum(self._session_stats.get("track_durations", [])) / len(self._session_stats.get("track_durations", [])) if self._session_stats.get("track_durations") else 0.0,
+                "avg_movement_speed": sum(self._session_stats.get("track_speeds", [])) / len(self._session_stats.get("track_speeds", [])) if self._session_stats.get("track_speeds") else 0.0,
+                "face_detected_total": self._session_stats.get("face_detected_total", 0),
+                "unique_tracks": len(self._session_stats.get("unique_track_ids", set())),
             }
 
     def get_dataframe(self) -> pd.DataFrame:
@@ -196,7 +287,14 @@ class StatisticsManager:
                     'loitering_events': s.loitering_events,
                     'anomaly_count': s.anomaly_count,
                     'restricted_zone_events': s.restricted_zone_events,
-                    'crowd_level': s.crowd_level
+                    'crowd_level': s.crowd_level,
+                    # UPGRADE 10: People Analytics
+                    'posture_distribution': s.posture_distribution,
+                    'gesture_distribution': s.gesture_distribution,
+                    'face_detected_count': s.face_detected_count,
+                    'unique_tracks': s.unique_tracks,
+                    'avg_track_duration': s.avg_track_duration,
+                    'avg_movement_speed': s.avg_movement_speed
                 })
             return pd.DataFrame(data)
 
@@ -327,6 +425,52 @@ class StatisticsManager:
             plt.tight_layout()
             return self._fig_to_base64(fig)
 
+    def generate_posture_distribution_chart(self) -> Optional[str]:
+        """Generate posture distribution pie chart (UPGRADE 10)."""
+        with self._lock:
+            df = self.get_dataframe()
+            if df.empty or 'posture_distribution' not in df.columns:
+                return None
+
+            # Get latest posture distribution
+            latest = df.iloc[-1]
+            posture_dist = latest.get('posture_distribution', {})
+            if not posture_dist:
+                return None
+
+            fig, ax = plt.subplots(figsize=(6, 6))
+            postures = list(posture_dist.keys())
+            counts = list(posture_dist.values())
+            colors = plt.cm.Set3(np.linspace(0, 1, len(postures)))
+
+            ax.pie(counts, labels=postures, colors=colors, autopct='%1.1f%%', startangle=90)
+            ax.set_title('Posture Distribution', fontsize=14, fontweight='bold')
+
+            return self._fig_to_base64(fig)
+
+    def generate_gesture_distribution_chart(self) -> Optional[str]:
+        """Generate gesture distribution pie chart (UPGRADE 10)."""
+        with self._lock:
+            df = self.get_dataframe()
+            if df.empty or 'gesture_distribution' not in df.columns:
+                return None
+
+            # Get latest gesture distribution
+            latest = df.iloc[-1]
+            gesture_dist = latest.get('gesture_distribution', {})
+            if not gesture_dist:
+                return None
+
+            fig, ax = plt.subplots(figsize=(6, 6))
+            gestures = list(gesture_dist.keys())
+            counts = list(gesture_dist.values())
+            colors = plt.cm.Set2(np.linspace(0, 1, len(gestures)))
+
+            ax.pie(counts, labels=gestures, colors=colors, autopct='%1.1f%%', startangle=90)
+            ax.set_title('Gesture Distribution', fontsize=14, fontweight='bold')
+
+            return self._fig_to_base64(fig)
+
     def generate_all_charts(self) -> Dict[str, Optional[str]]:
         """Generate all charts and return as base64 strings."""
         return {
@@ -334,7 +478,9 @@ class StatisticsManager:
             "people_over_time": self.generate_people_over_time_chart(),
             "anomalies_over_time": self.generate_anomalies_over_time_chart(),
             "hourly_activity": self.generate_hourly_activity_chart(),
-            "event_frequency": self.generate_event_frequency_chart()
+            "event_frequency": self.generate_event_frequency_chart(),
+            "posture_distribution": self.generate_posture_distribution_chart(),
+            "gesture_distribution": self.generate_gesture_distribution_chart()
         }
 
     def save_charts_to_files(self) -> Dict[str, str]:
@@ -394,6 +540,17 @@ class StatisticsManager:
                 }
             }
 
+            # UPGRADE 10: Add people analytics to report
+            report["people_analytics"] = {
+                "posture_distribution": stats.get("posture_distribution", {}),
+                "gesture_distribution": stats.get("gesture_distribution", {}),
+                "face_detected_total": stats.get("face_detected_total", 0),
+                "unique_tracks": stats.get("unique_tracks", 0),
+                "avg_track_duration": stats.get("avg_track_duration", 0.0),
+                "avg_movement_speed": stats.get("avg_movement_speed", 0.0),
+                "face_detected_total": stats.get("face_detected_total", 0),
+            }
+
             if not df.empty:
                 report["time_series"] = {
                     "avg_people": df['current_persons'].mean(),
@@ -416,6 +573,13 @@ class StatisticsManager:
                 "event_counts": {},
                 "zone_events": {},
                 "anomaly_count": 0,
-                "start_time": time.time()
+                "start_time": time.time(),
+                # UPGRADE 10: People Analytics
+                "posture_counts": {},
+                "gesture_counts": {},
+                "face_detected_total": 0,
+                "unique_track_ids": set(),
+                "track_durations": [],
+                "track_speeds": [],
             }
             self._last_update = 0.0

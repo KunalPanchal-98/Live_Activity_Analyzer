@@ -4,3 +4,59 @@
 2026-09-26 22:17:51,489 - __main__ - INFO - ============================================================
 2026-09-26 22:17:51,728 - app.gui - INFO - GUI initialized
 2026-09-26 22:20:58,151 - __main__ - INFO - Application closed normally
+2026-09-27 22:43:37,893 - __main__ - INFO - ============================================================
+2026-09-27 22:43:37,893 - __main__ - INFO - Live Activity Analyzer Starting
+2026-09-27 22:43:37,893 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-09-27 22:43:37,893 - __main__ - INFO - ============================================================
+2026-09-27 22:43:37,911 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-09-27 22:43:37,911 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-09-27 22:43:37,911 - root - INFO - Database initialized successfully
+2026-09-27 22:43:38,222 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-09-27 22:43:38,373 - CameraManager - INFO - Starting universal camera discovery...
+2026-09-27 22:43:38,374 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-09-27 22:43:39,982 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-09-27 22:43:40,396 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-09-27 22:43:40,400 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-09-27 22:43:49,981 - ObjectDetector - ERROR - Detection error: silu_() received an invalid combination of arguments - got (Tensor), but expected one of:
+
+2026-09-27 22:45:36,271 - __main__ - INFO - ============================================================
+2026-09-27 22:45:36,271 - __main__ - INFO - Live Activity Analyzer Starting
+2026-09-27 22:45:36,271 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-09-27 22:45:36,271 - __main__ - INFO - ============================================================
+2026-09-27 22:45:36,288 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-09-27 22:45:36,288 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-09-27 22:45:36,288 - root - INFO - Database initialized successfully
+2026-09-27 22:45:36,590 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-09-27 22:45:36,746 - CameraManager - INFO - Starting universal camera discovery...
+2026-09-27 22:45:36,746 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-09-27 22:45:38,167 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-09-27 22:45:38,577 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-09-27 22:45:38,580 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-09-28 00:31:21,312 - __main__ - INFO - ============================================================
+2026-09-28 00:31:21,312 - __main__ - INFO - Live Activity Analyzer Starting
+2026-09-28 00:31:21,312 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-09-28 00:31:21,312 - __main__ - INFO - ============================================================
+2026-09-28 00:31:21,339 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-09-28 00:31:21,339 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-09-28 00:31:21,340 - root - INFO - Database initialized successfully
+2026-09-28 00:31:21,818 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-09-28 00:31:22,079 - CameraManager - INFO - Starting universal camera discovery...
+2026-09-28 00:31:22,079 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-09-28 00:31:23,625 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-09-28 00:31:24,192 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-09-28 00:31:24,212 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-09-28 01:19:07,012 - __main__ - INFO - ============================================================
+2026-09-28 01:19:07,012 - __main__ - INFO - Live Activity Analyzer Starting
+2026-09-28 01:19:07,012 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-09-28 01:19:07,012 - __main__ - INFO - ============================================================
+2026-09-28 01:19:07,039 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-09-28 01:19:07,039 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-09-28 01:19:07,040 - root - INFO - Database initialized successfully
+2026-09-28 01:19:07,507 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-09-28 01:19:07,781 - CameraManager - INFO - Starting universal camera discovery...
+2026-09-28 01:19:07,782 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-09-28 01:19:09,352 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-09-28 01:19:09,853 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-09-28 01:19:09,870 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-09-28 01:19:22,558 - ObjectDetector - ERROR - Detection error: conv2d() received an invalid combination of arguments - got (Tensor, Parameter, Parameter, tuple, tuple, tuple, int), but expected one of:
+

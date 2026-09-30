@@ -4,6 +4,7 @@ Implements ByteTrack-style tracking for person detection.
 """
 
 import numpy as np
+import cv2
 import logging
 from typing import List, Dict, Any, Optional, Tuple
 from dataclasses import dataclass, field
@@ -34,6 +35,10 @@ class Track:
     zone_history: Dict[str, float] = field(default_factory=dict)
     current_zone: Optional[str] = None
     activity: str = "Unknown"
+    posture: str = "Unknown"
+    gesture: str = "Unknown"
+    face_detected: bool = False
+    face_bbox: Optional[Tuple[float, float, float, float]] = None
     first_seen: float = 0.0
     last_seen: float = 0.0
 
@@ -241,6 +246,20 @@ class PersonTracker:
         """Update track activity."""
         if track_id in self._tracks:
             self._tracks[track_id].activity = activity
+            return True
+        return False
+
+    def update_track_posture(self, track_id: int, posture: str) -> bool:
+        """Update track posture."""
+        if track_id in self._tracks:
+            self._tracks[track_id].posture = posture
+            return True
+        return False
+
+    def update_track_gesture(self, track_id: int, gesture: str) -> bool:
+        """Update track gesture."""
+        if track_id in self._tracks:
+            self._tracks[track_id].gesture = gesture
             return True
         return False
 

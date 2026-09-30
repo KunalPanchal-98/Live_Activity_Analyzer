@@ -48,7 +48,40 @@ class ActivityConfig:
     speed_threshold_running: float = 4.0
     loitering_duration_seconds: int = 30
     stationary_frames_threshold: int = 15
-    zone_entry_exit_margin: int = 20
+    zone_entry_exit_margin: int = 50
+    smoothing_window: int = 7
+    confirmation_frames: int = 3
+    minimum_displacement: float = 5.0
+    history_length: int = 30
+    loitering_variance_threshold: float = 100.0
+    stale_track_timeout: float = 5.0
+    enabled: bool = True
+
+
+@dataclass
+class PoseConfig:
+    enabled: bool = True
+    model: str = "models/yolov8n-pose.pt"
+    confidence_threshold: float = 0.4
+    draw_skeleton: bool = True
+    smoothing_window: int = 5
+
+
+@dataclass
+class GestureConfig:
+    enabled: bool = True
+    smoothing_window: int = 5
+    wrist_above_head_margin: int = 10
+    wrist_above_shoulder_margin: int = 30
+    elbow_angle_threshold: float = 90.0
+
+
+@dataclass
+class FaceConfig:
+    enabled: bool = True
+    confidence_threshold: float = 0.5
+    draw_boxes: bool = True
+    model: str = "opencv_dnn"
 
 
 @dataclass
@@ -121,6 +154,9 @@ class AppConfig:
     detection: DetectionConfig = field(default_factory=DetectionConfig)
     tracking: TrackingConfig = field(default_factory=TrackingConfig)
     activity: ActivityConfig = field(default_factory=ActivityConfig)
+    pose: PoseConfig = field(default_factory=PoseConfig)
+    gesture: GestureConfig = field(default_factory=GestureConfig)
+    face: FaceConfig = field(default_factory=FaceConfig)
     anomaly: AnomalyConfig = field(default_factory=AnomalyConfig)
     zones: ZonesConfig = field(default_factory=ZonesConfig)
     alerts: AlertsConfig = field(default_factory=AlertsConfig)
@@ -175,6 +211,9 @@ class ConfigManager:
             detection=DetectionConfig(**data.get("detection", {})),
             tracking=TrackingConfig(**data.get("tracking", {})),
             activity=ActivityConfig(**data.get("activity", {})),
+            pose=PoseConfig(**data.get("pose", {})),
+            gesture=GestureConfig(**data.get("gesture", {})),
+            face=FaceConfig(**data.get("face", {})),
             anomaly=AnomalyConfig(**data.get("anomaly", {})),
             zones=ZonesConfig(**data.get("zones", {})),
             alerts=AlertsConfig(**data.get("alerts", {})),
@@ -233,6 +272,15 @@ class ConfigManager:
     
     def get_activity_config(self) -> ActivityConfig:
         return self._config.activity
+    
+    def get_pose_config(self) -> PoseConfig:
+        return self._config.pose
+    
+    def get_gesture_config(self) -> GestureConfig:
+        return self._config.gesture
+    
+    def get_face_config(self) -> FaceConfig:
+        return self._config.face
     
     def get_anomaly_config(self) -> AnomalyConfig:
         return self._config.anomaly
@@ -300,6 +348,21 @@ class ConfigManager:
         for key, value in kwargs.items():
             if hasattr(self._config.activity, key):
                 setattr(self._config.activity, key, value)
+    
+    def update_pose_config(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self._config.pose, key):
+                setattr(self._config.pose, key, value)
+    
+    def update_gesture_config(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self._config.gesture, key):
+                setattr(self._config.gesture, key, value)
+    
+    def update_face_config(self, **kwargs) -> None:
+        for key, value in kwargs.items():
+            if hasattr(self._config.face, key):
+                setattr(self._config.face, key, value)
     
     def update_anomaly_config(self, **kwargs) -> None:
         for key, value in kwargs.items():

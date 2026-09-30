@@ -5,6 +5,7 @@ Uses Ultralytics YOLO for person and object detection.
 
 import cv2
 import numpy as np
+import time
 import logging
 from pathlib import Path
 from typing import List, Dict, Any, Optional, Tuple
@@ -52,6 +53,7 @@ class ObjectDetector:
         self._max_detections: int = self._config.get("detection.max_detections", 100)
 
         self._class_names: Dict[int, str] = {}
+        self._last_inference_time_ms: float = 0.0
         self._logger = logging.getLogger("ObjectDetector")
         self._load_model()
 
@@ -74,6 +76,7 @@ class ObjectDetector:
             self._logger.warning("Model not loaded")
             return []
 
+        t0 = time.time()
         try:
             results = self._model(
                 frame,
@@ -83,6 +86,7 @@ class ObjectDetector:
                 max_det=self._max_detections,
                 verbose=False
             )
+            self._last_inference_time_ms = (time.time() - t0) * 1000.0
 
             detections = []
             for result in results:
@@ -106,6 +110,11 @@ class ObjectDetector:
         except Exception as e:
             self._logger.error(f"Detection error: {e}")
             return []
+
+    @property
+    def last_inference_time_ms(self) -> float:
+        """Execution time of the last YOLO inference in milliseconds."""
+        return self._last_inference_time_ms
 
     def detect_persons(self, frame: np.ndarray) -> List[Detection]:
         """Detect only persons."""

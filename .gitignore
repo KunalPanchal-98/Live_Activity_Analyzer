@@ -1,0 +1,48 @@
+# macOS
+.DS_Store
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# Swap / temporary files
+*.swp
+*.swo
+*.tmp
+*.temp
+
+# Test/cache
+.pytest_cache/
+.mypy_cache/
+
+# Runtime logs
+logs/*
+!logs/.gitkeep
+
+# Generated database
+database/*.db
+database/*.sqlite
+database/*.sqlite3
+
+# Generated screenshots
+screenshots/*
+
+# Generated reports
+reports/*
+
+# Model weights
+models/*.pt
+models/*.onnx
+
+# OS/editor temporary files
+*.bak

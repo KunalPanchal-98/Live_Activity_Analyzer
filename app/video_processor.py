@@ -11,13 +11,15 @@ import time
 from datetime import datetime
 from pathlib import Path
 from typing import Optional, Callable, Dict, Any, List, Tuple
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from app.config_manager import get_config
-from app.camera_manager import CameraManager, CameraSource, FrameData
+from app.camera_manager import CameraManager, CameraSource, FrameData, CameraState, CameraDeviceInfo
 from app.detector import ObjectDetector, Detection
 from app.tracker import PersonTracker, Track
-from app.activity_analyzer import ActivityAnalyzer, ActivityType
+from app.activity_analyzer import ActivityAnalyzer, ActivityType, ActivityTransition
+from app.pose_estimator import PoseEstimator, PersonPose, PostureType, GestureType
+from app.face_detector import FaceDetector, FaceDetection
 from app.anomaly_detector import AnomalyDetector, AnomalyResult
 from app.zone_manager import ZoneManager, ZoneType
 from app.alert_manager import AlertManager, Alert
@@ -39,6 +41,11 @@ class ProcessingResult:
     zone_violations: List[Tuple[Track, Any]]
     fps: float
     timestamp: float
+    inference_time_ms: float = 0.0
+    process_time_ms: float = 0.0
+    activity_transitions: List[ActivityTransition] = field(default_factory=list)
+    poses: List[PersonPose] = field(default_factory=list)
+    faces: List[FaceDetection] = field(default_factory=list)
 
 
 class VideoProcessor:
@@ -50,6 +57,8 @@ class VideoProcessor:
         self._detector = ObjectDetector()
         self._tracker = PersonTracker()
         self._activity_analyzer = ActivityAnalyzer()
+        self._pose_estimator = PoseEstimator()
+        self._face_detector = FaceDetector()
         self._anomaly_detector = AnomalyDetector()
         self._zone_manager = ZoneManager()
         self._alert_manager = AlertManager()
@@ -61,11 +70,13 @@ class VideoProcessor:
         self._running: bool = False
         self._processing_thread: Optional[threading.Thread] = None
         self._frame_callback: Optional[Callable[[ProcessingResult], None]] = None
+        self._camera_state_callback: Optional[Callable[[CameraState, str], None]] = None
         self._lock = threading.RLock()
 
         self._frame_count: int = 0
         self._last_frame_time: float = 0.0
         self._processing_fps: float = 0.0
+        self._last_process_time_ms: float = 0.0
         self._inference_resolution: Tuple[int, int] = (640, 640)
         self._frame_skip: int = 0
         self._process_every_n: int = 1
@@ -76,7 +87,24 @@ class VideoProcessor:
     def _setup_callbacks(self) -> None:
         """Setup internal callbacks."""
         self._camera.set_frame_callback(self._on_new_frame)
+        self._camera.set_state_callback(self._on_camera_state)
         self._alert_manager.add_alert_callback(self._on_alert)
+
+    def _on_camera_state(self, state: CameraState, message: str) -> None:
+        """Forward camera state changes to external subscribers."""
+        if self._camera_state_callback:
+            try:
+                self._camera_state_callback(state, message)
+            except Exception as e:
+                self._logger.error(f"Error in camera state callback: {e}")
+
+    def set_camera_state_callback(self, callback: Callable[[CameraState, str], None]) -> None:
+        """Set callback for camera state changes."""
+        self._camera_state_callback = callback
+
+    def get_camera_manager(self) -> CameraManager:
+        """Return the underlying CameraManager."""
+        return self._camera
 
     def _on_new_frame(self, frame_data: FrameData) -> None:
         """Callback for new camera frames."""
@@ -134,6 +162,35 @@ class VideoProcessor:
             if track.track_id in activities:
                 self._tracker.update_track_activity(track.track_id, activities[track.track_id].value)
 
+        # Estimate skeletal poses and postures (UPGRADE 7)
+        poses = self._pose_estimator.estimate(frame, tracks)
+        for pose in poses:
+            if pose.track_id is not None:
+                self._tracker.update_track_posture(pose.track_id, pose.posture.value)
+                # Update track gesture (UPGRADE 8)
+                if self._pose_estimator._gesture_analyzer.is_enabled:
+                    self._tracker.update_track_gesture(pose.track_id, pose.gesture.value)
+
+        # Fall detection alert (UPGRADE 7) - check for FALLEN posture
+        alerts = []
+        for pose in poses:
+            if pose.track_id is not None and pose.posture == PostureType.FALLEN:
+                track = self._tracker.get_track(pose.track_id)
+                if track:
+                    fall_alert = self._alert_manager.check_fall(track)
+                    if fall_alert:
+                        alerts.append(fall_alert)
+
+        # Face detection (UPGRADE 9)
+        faces = self._face_detector.detect(frame)
+        self._face_detector.associate_faces_with_tracks(faces, tracks)
+        for face in faces:
+            if face.track_id is not None:
+                track = self._tracker.get_track(face.track_id)
+                if track:
+                    track.face_detected = True
+                    track.face_bbox = face.bbox
+
         # Run anomaly detection
         anomalies = self._anomaly_detector.update(tracks, frame_data.timestamp)
 
@@ -142,7 +199,6 @@ class VideoProcessor:
         loitering_tracks = self._zone_manager.get_loitering_tracks(tracks, frame_data.timestamp)
 
         # Process alerts
-        alerts = []
         for track, zone in zone_violations:
             alert = self._alert_manager.check_restricted_zone(track, zone.name)
             if alert:
@@ -169,11 +225,21 @@ class VideoProcessor:
         # Update statistics
         self._stats.update(tracks, activities, alerts, anomalies, frame_data.timestamp)
 
-        # Draw annotations
-        annotated = self._draw_annotations(frame, tracks, activities, zone_violations, loitering_tracks)
+        # Collect activity transition events (UPGRADE 6)
+        activity_transitions = self._activity_analyzer.get_pending_transitions()
+        for transition in activity_transitions:
+            self._logger.debug(
+                "Activity transition: Track %d %s -> %s (%s)",
+                transition.track_id, transition.from_activity.value,
+                transition.to_activity.value, transition.reason)
 
-        # Calculate processing FPS
+        # Draw annotations with skeletons
+        annotated = self._draw_annotations(frame, tracks, activities, zone_violations, loitering_tracks, poses, faces)
+
+        # Calculate processing FPS and latency
         process_time = time.time() - start_time
+        self._last_process_time_ms = process_time * 1000.0
+        infer_time = getattr(self._detector, "last_inference_time_ms", 0.0)
         self._processing_fps = 1.0 / process_time if process_time > 0 else 0.0
 
         return ProcessingResult(
@@ -186,17 +252,28 @@ class VideoProcessor:
             alerts=alerts,
             zone_violations=zone_violations,
             fps=self._processing_fps,
-            timestamp=frame_data.timestamp
+            timestamp=frame_data.timestamp,
+            inference_time_ms=infer_time,
+            process_time_ms=self._last_process_time_ms,
+            activity_transitions=activity_transitions,
+            poses=poses,
+            faces=faces
         )
 
     def _draw_annotations(self, frame: np.ndarray, tracks: List[Track],
                           activities: Dict[int, ActivityType],
-                          zone_violations: List, loitering_tracks: List) -> np.ndarray:
+                          zone_violations: List, loitering_tracks: List,
+                          poses: Optional[List[PersonPose]] = None,
+                          faces: Optional[List[FaceDetection]] = None) -> np.ndarray:
         """Draw all annotations on frame."""
         annotated = frame.copy()
 
         # Draw zones first (background)
         annotated = self._zone_manager.draw_zones(annotated)
+
+        # Draw skeletal poses
+        if poses and getattr(self._pose_estimator, "_draw_skeleton", True):
+            annotated = self._pose_estimator.draw_skeletons(annotated, poses)
 
         # Draw tracks with activities
         for track in tracks:
@@ -206,10 +283,17 @@ class VideoProcessor:
             x1, y1, x2, y2 = map(int, track.bbox)
             cv2.rectangle(annotated, (x1, y1), (x2, y2), color, 2)
 
-            # Label with ID and activity
+            # Label with ID, activity, and posture
             label = f"ID:{track.track_id} {activity.value}"
+            if getattr(track, "posture", "Unknown") != "Unknown":
+                label += f" [{track.posture}]"
             if track.speed > 0:
                 label += f" {track.speed:.1f}px/s"
+
+            # Show activity duration if available
+            act_duration = self._activity_analyzer.get_activity_duration(track.track_id)
+            if act_duration > 1.0:
+                label += f" ({act_duration:.0f}s)"
 
             (label_w, label_h), _ = cv2.getTextSize(label, cv2.FONT_HERSHEY_SIMPLEX, 0.5, 1)
             cv2.rectangle(annotated, (x1, y1 - label_h - 5), (x1 + label_w, y1), color, -1)
@@ -238,6 +322,10 @@ class VideoProcessor:
             cv2.putText(annotated, f"LOITERING: {duration:.1f}s", (x1, y2 + 20),
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 165, 255), 2)
 
+        # Draw face detections (UPGRADE 9)
+        if faces and self._face_detector.is_available and self._face_detector._draw_boxes:
+            annotated = self._face_detector.draw_faces(annotated, faces)
+
         return annotated
 
     def _get_activity_color(self, activity: ActivityType) -> Tuple[int, int, int]:
@@ -252,6 +340,33 @@ class VideoProcessor:
             ActivityType.UNKNOWN: (128, 128, 128)    # Gray
         }
         return colors.get(activity, (255, 255, 255))
+
+    def auto_start(self, device_id: Optional[int] = None) -> Tuple[bool, str]:
+        """
+        Auto-discover camera, validate hardware, and start video processing pipeline.
+        Returns (success: bool, message: str).
+        """
+        with self._lock:
+            if self._running:
+                return False, "Video processing is already running"
+
+            success, msg = self._camera.auto_discover_and_connect(device_id)
+            if not success:
+                return False, msg
+
+            # Create database session
+            res = self._camera.get_resolution()
+            resolution = f"{res[0]}x{res[1]}"
+            src_path = self._camera.get_source_path()
+            self._session_id = self._db.create_session(src_path, resolution)
+            self._zone_manager.set_session(self._session_id)
+            self._stats.set_session(self._session_id)
+
+            self._running = True
+            self._frame_count = 0
+            self._last_frame_time = time.time()
+            self._logger.info(f"Video processing auto-started with camera {src_path}")
+            return True, msg
 
     def start(self, source_type: str = "webcam", source_path: str = "0") -> bool:
         """Start video processing."""
@@ -337,8 +452,16 @@ class VideoProcessor:
             "anomaly_stats": self._anomaly_detector.get_model_info(),
             "zone_stats": self._zone_manager.get_stats(),
             "alert_stats": self._alert_manager.get_stats(),
-            "statistics": self._stats.get_current_stats()
+            "statistics": self._stats.get_current_stats(),
+            "inference_time_ms": getattr(self._detector, "last_inference_time_ms", 0.0),
+            "process_time_ms": self._last_process_time_ms,
+            "pose_model_available": self._pose_estimator.is_available,
+            "face_model_available": self._face_detector.is_available
         }
+
+    def get_pose_estimator(self) -> PoseEstimator:
+        """Get the active pose estimator instance."""
+        return self._pose_estimator
 
     def add_zone(self, name: str, zone_type: ZoneType,
                  points: List[Tuple[float, float]], color: Tuple[int, int, int] = (0, 0, 255)) -> int:
