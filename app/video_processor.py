@@ -111,18 +111,26 @@ class VideoProcessor:
         if not self._running:
             return
 
-        # Frame skipping for performance
-        self._frame_count += 1
-        if self._frame_count % self._process_every_n != 0:
+        # Latest-frame architecture: drop stale frames if pipeline is currently processing
+        if getattr(self, "_is_processing_frame", False):
             return
 
-        result = self._process_frame(frame_data)
+        self._is_processing_frame = True
+        try:
+            # Frame skipping for performance
+            self._frame_count += 1
+            if self._frame_count % self._process_every_n != 0:
+                return
 
-        if self._frame_callback:
-            try:
-                self._frame_callback(result)
-            except Exception as e:
-                self._logger.error(f"Frame callback error: {e}")
+            result = self._process_frame(frame_data)
+
+            if self._frame_callback:
+                try:
+                    self._frame_callback(result)
+                except Exception as e:
+                    self._logger.error(f"Frame callback error: {e}")
+        finally:
+            self._is_processing_frame = False
 
     def _on_alert(self, alert: Alert) -> None:
         """Callback for new alerts."""
@@ -153,6 +161,8 @@ class VideoProcessor:
 
         # Run tracking
         tracks = self._tracker.update(detections, frame_data.timestamp)
+        active_ids = {t.track_id for t in tracks}
+        self._pose_estimator.prune_dead_tracks(active_ids)
 
         # Analyze activities
         activities = self._activity_analyzer.analyze(tracks, frame_data.timestamp, frame.shape[:2])

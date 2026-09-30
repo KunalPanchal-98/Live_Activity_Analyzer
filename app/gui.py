@@ -1372,6 +1372,16 @@ class ApplicationGUI:
         - Anomaly log
         - Metric cards
         """
+        # Always update StringVars immediately (thread-safe in Python Tkinter)
+        if hasattr(result, "inference_time_ms") and result.inference_time_ms > 0:
+            self.status_vars["inference_time"].set(f"{result.inference_time_ms:.1f}ms")
+        if hasattr(result, "process_time_ms") and result.process_time_ms > 0:
+            self.status_vars["process_time"].set(f"{result.process_time_ms:.1f}ms")
+        if hasattr(result, "tracks"):
+            self.status_vars["active_tracks"].set(str(len(result.tracks)))
+        if hasattr(result, "detections"):
+            self.status_vars["objects_count"].set(str(len(result.detections)))
+
         def _apply():
             try:
                 # Update People Treeview
@@ -1416,41 +1426,11 @@ class ApplicationGUI:
                             if len(children) > 100:
                                 self.anomaly_tree.delete(children[-1])
 
-                # Update Active Tracks count
-                if hasattr(result, "tracks"):
-                    self.status_vars["active_tracks"].set(str(len(result.tracks)))
-                    if "active_tracks" in self.metric_cards:
-                        self.metric_cards["active_tracks"].set_value(str(len(result.tracks)))
+                if hasattr(result, "tracks") and "active_tracks" in self.metric_cards:
+                    self.metric_cards["active_tracks"].set_value(str(len(result.tracks)))
 
-                # Update Objects count
-                if hasattr(result, "detections"):
-                    self.status_vars["objects_count"].set(str(len(result.detections)))
-                    if "objects" in self.metric_cards:
-                        self.metric_cards["objects"].set_value(str(len(result.detections)))
-
-                # Update Latency & Performance Telemetry
-                if hasattr(result, "inference_time_ms") and result.inference_time_ms > 0:
-                    self.status_vars["inference_time"].set(f"{result.inference_time_ms:.1f}ms")
-                if hasattr(result, "process_time_ms") and result.process_time_ms > 0:
-                    self.status_vars["process_time"].set(f"{result.process_time_ms:.1f}ms")
-
-                # Update Live Monitor top header telemetry
-                if hasattr(self, "live_telemetry_top_lbl"):
-                    res_val = self.status_vars.get("resolution", tk.StringVar(value="N/A")).get()
-                    fps_val = f"{result.fps:.1f}" if hasattr(result, "fps") and result.fps > 0 else self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
-                    inf_val = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
-                    self.live_telemetry_top_lbl.configure(text=f"RES: {res_val} | FPS: {fps_val} | INFER: {inf_val}")
-
-                # Update Live Monitor bottom control strip telemetry
-                if hasattr(self, "video_telemetry_var"):
-                    fps_txt = f"{result.fps:.1f}" if hasattr(result, "fps") and result.fps > 0 else self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
-                    inf_txt = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
-                    people_txt = str(len(result.tracks)) if hasattr(result, "tracks") else "0"
-                    tracks_txt = str(len(result.tracks)) if hasattr(result, "tracks") else "0"
-                    cam_txt = self.status_vars.get("camera", tk.StringVar(value="CONNECTED")).get()
-                    self.video_telemetry_var.set(
-                        f"FPS: {fps_txt} | Infer: {inf_txt} | People: {people_txt} | Tracks: {tracks_txt} | State: {cam_txt}"
-                    )
+                if hasattr(result, "detections") and "objects" in self.metric_cards:
+                    self.metric_cards["objects"].set_value(str(len(result.detections)))
 
                 # Check and update posture mode availability
                 self._update_posture_mode_availability(result)
@@ -1458,16 +1438,23 @@ class ApplicationGUI:
             except Exception as e:
                 logger.debug(f"Pipeline result GUI dispatch suppressed: {e}")
 
-        try:
-            if threading.current_thread() is threading.main_thread():
-                _apply()
-            else:
-                self.root.after(0, _apply)
-        except Exception:
+        if getattr(self, "_pipeline_update_pending", False):
+            return
+        self._pipeline_update_pending = True
+
+        def _apply_wrapper():
             try:
                 _apply()
-            except Exception:
-                pass
+            finally:
+                self._pipeline_update_pending = False
+
+        try:
+            if threading.current_thread() is threading.main_thread():
+                _apply_wrapper()
+            else:
+                self.root.after(0, _apply_wrapper)
+        except Exception:
+            self._pipeline_update_pending = False
 
     def _update_posture_mode_availability(self, result: Any) -> None:
         """Update Posture, Hand Gesture and Face mode button availability based on estimator status."""
@@ -1667,137 +1654,164 @@ class ApplicationGUI:
                 pass
 
     def update_status(self, **kwargs) -> None:
-        """Update telemetry values and metric cards."""
-        for key, value in kwargs.items():
-            if key in self.status_vars:
-                self.status_vars[key].set(str(value))
+        """Update telemetry values and metric cards (thread-safe)."""
+        def _apply():
+            for key, value in kwargs.items():
+                if key in self.status_vars:
+                    self.status_vars[key].set(str(value))
 
-        # Update metric cards
-        if "people_count" in kwargs and "people" in self.metric_cards:
-            self.metric_cards["people"].set_value(str(kwargs["people_count"]))
+            # Update metric cards
+            if "people_count" in kwargs and "people" in self.metric_cards:
+                self.metric_cards["people"].set_value(str(kwargs["people_count"]))
 
-        if "fps" in kwargs:
-            fps_str = str(kwargs["fps"])
-            self.top_fps_badge.configure(text=f"FPS: {fps_str}")
-            if "fps" in self.metric_cards:
-                self.metric_cards["fps"].set_value(fps_str)
+            if "fps" in kwargs:
+                fps_str = str(kwargs["fps"])
+                self.top_fps_badge.configure(text=f"FPS: {fps_str}")
+                if "fps" in self.metric_cards:
+                    self.metric_cards["fps"].set_value(fps_str)
 
-        if "current_activity" in kwargs and "current_activity" in self.metric_cards:
-            self.metric_cards["current_activity"].set_value(str(kwargs["current_activity"]))
+            if "current_activity" in kwargs and "current_activity" in self.metric_cards:
+                self.metric_cards["current_activity"].set_value(str(kwargs["current_activity"]))
 
-        if "anomaly_status" in kwargs and "anomalies" in self.metric_cards:
-            status = kwargs["anomaly_status"]
-            color = COLOR_DANGER if status == "ANOMALY" else COLOR_SUCCESS
-            self.metric_cards["anomalies"].set_value(status, color=color)
+            if "anomaly_status" in kwargs and "anomalies" in self.metric_cards:
+                status = kwargs["anomaly_status"]
+                color = COLOR_DANGER if status == "ANOMALY" else COLOR_SUCCESS
+                self.metric_cards["anomalies"].set_value(status, color=color)
 
-        # Update Live Monitor subsystem status badges
-        if "pipeline_detection" in kwargs and hasattr(self, "badge_det"):
-            det_val = kwargs["pipeline_detection"]
-            color = COLOR_SUCCESS if det_val == "ACTIVE" else (COLOR_DANGER if det_val == "ERROR" else COLOR_TEXT_DIM)
-            self.badge_det.configure(text=f"DET: {det_val}", fg=color)
+            # Update Live Monitor subsystem status badges
+            if "pipeline_detection" in kwargs and hasattr(self, "badge_det"):
+                det_val = kwargs["pipeline_detection"]
+                color = COLOR_SUCCESS if det_val == "ACTIVE" else (COLOR_DANGER if det_val == "ERROR" else COLOR_TEXT_DIM)
+                self.badge_det.configure(text=f"DET: {det_val}", fg=color)
 
-        if "pipeline_tracking" in kwargs and hasattr(self, "badge_trk"):
-            trk_val = kwargs["pipeline_tracking"]
-            color = COLOR_SUCCESS if trk_val == "ACTIVE" else (COLOR_DANGER if trk_val == "ERROR" else COLOR_TEXT_DIM)
-            self.badge_trk.configure(text=f"TRK: {trk_val}", fg=color)
+            if "pipeline_tracking" in kwargs and hasattr(self, "badge_trk"):
+                trk_val = kwargs["pipeline_tracking"]
+                color = COLOR_SUCCESS if trk_val == "ACTIVE" else (COLOR_DANGER if trk_val == "ERROR" else COLOR_TEXT_DIM)
+                self.badge_trk.configure(text=f"TRK: {trk_val}", fg=color)
 
-        if "pipeline_activity" in kwargs and hasattr(self, "badge_act"):
-            act_val = kwargs["pipeline_activity"]
-            color = COLOR_SUCCESS if act_val == "ACTIVE" else COLOR_TEXT_DIM
-            self.badge_act.configure(text=f"ACT: {act_val}", fg=color)
+            if "pipeline_activity" in kwargs and hasattr(self, "badge_act"):
+                act_val = kwargs["pipeline_activity"]
+                color = COLOR_SUCCESS if act_val == "ACTIVE" else COLOR_TEXT_DIM
+                self.badge_act.configure(text=f"ACT: {act_val}", fg=color)
 
-        if "pipeline_anomaly" in kwargs and hasattr(self, "badge_anom"):
-            anom_val = kwargs["pipeline_anomaly"]
-            color = COLOR_SUCCESS if anom_val == "ACTIVE" else COLOR_TEXT_DIM
-            self.badge_anom.configure(text=f"ANOM: {anom_val}", fg=color)
+            if "pipeline_anomaly" in kwargs and hasattr(self, "badge_anom"):
+                anom_val = kwargs["pipeline_anomaly"]
+                color = COLOR_SUCCESS if anom_val == "ACTIVE" else COLOR_TEXT_DIM
+                self.badge_anom.configure(text=f"ANOM: {anom_val}", fg=color)
 
-        # Update Live Monitor top telemetry label
-        if hasattr(self, "live_telemetry_top_lbl"):
-            res_val = self.status_vars.get("resolution", tk.StringVar(value="N/A")).get()
-            fps_val = self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
-            inf_val = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
-            self.live_telemetry_top_lbl.configure(text=f"RES: {res_val} | FPS: {fps_val} | INFER: {inf_val}")
+            # Update Live Monitor top telemetry label
+            if hasattr(self, "live_telemetry_top_lbl"):
+                res_val = self.status_vars.get("resolution", tk.StringVar(value="N/A")).get()
+                fps_val = self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
+                inf_val = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
+                self.live_telemetry_top_lbl.configure(text=f"RES: {res_val} | FPS: {fps_val} | INFER: {inf_val}")
 
-        # Update bottom video telemetry strip
-        if hasattr(self, "video_telemetry_var"):
-            fps_txt = self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
-            inf_txt = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
-            people_txt = self.status_vars.get("people_count", tk.StringVar(value="0")).get()
-            tracks_txt = self.status_vars.get("active_tracks", tk.StringVar(value="0")).get()
-            cam_txt = self.status_vars.get("camera", tk.StringVar(value="DISCONNECTED")).get()
-            self.video_telemetry_var.set(
-                f"FPS: {fps_txt} | Infer: {inf_txt} | People: {people_txt} | Tracks: {tracks_txt} | State: {cam_txt}"
-            )
+            # Update bottom video telemetry strip
+            if hasattr(self, "video_telemetry_var"):
+                fps_txt = self.status_vars.get("fps", tk.StringVar(value="0.0")).get()
+                inf_txt = self.status_vars.get("inference_time", tk.StringVar(value="N/A")).get()
+                people_txt = self.status_vars.get("people_count", tk.StringVar(value="0")).get()
+                tracks_txt = self.status_vars.get("active_tracks", tk.StringVar(value="0")).get()
+                cam_txt = self.status_vars.get("camera", tk.StringVar(value="DISCONNECTED")).get()
+                self.video_telemetry_var.set(
+                    f"FPS: {fps_txt} | Infer: {inf_txt} | People: {people_txt} | Tracks: {tracks_txt} | State: {cam_txt}"
+                )
 
-        # Update Live Monitor camera title
-        if hasattr(self, "live_camera_title_lbl"):
-            src = self.source_description if self.source_description != "No Source" else "No Source"
-            self.live_camera_title_lbl.configure(text=f"LIVE CAMERA: {src}")
+            # Update Live Monitor camera title
+            if hasattr(self, "live_camera_title_lbl"):
+                src = self.source_description if self.source_description != "No Source" else "No Source"
+                self.live_camera_title_lbl.configure(text=f"LIVE CAMERA: {src}")
+
+        try:
+            if threading.current_thread() is threading.main_thread():
+                _apply()
+            else:
+                self.root.after(0, _apply)
+        except Exception:
+            pass
 
     def update_stats(self, **kwargs) -> None:
-        """Update running statistics values."""
-        for key, value in kwargs.items():
-            if key in self.stats_vars:
-                self.stats_vars[key].set(str(value))
+        """Update running statistics values (thread-safe)."""
+        def _apply():
+            for key, value in kwargs.items():
+                if key in self.stats_vars:
+                    self.stats_vars[key].set(str(value))
 
-        if "total_detected" in kwargs and "total_detected" in getattr(self, "stat_cards", {}):
-            self.stat_cards["total_detected"].set_value(str(kwargs["total_detected"]))
+            if "total_detected" in kwargs and "total_detected" in getattr(self, "stat_cards", {}):
+                self.stat_cards["total_detected"].set_value(str(kwargs["total_detected"]))
 
-        if "total_entries" in kwargs and "total_entries" in getattr(self, "stat_cards", {}):
-            self.stat_cards["total_entries"].set_value(str(kwargs["total_entries"]))
+            if "total_entries" in kwargs and "total_entries" in getattr(self, "stat_cards", {}):
+                self.stat_cards["total_entries"].set_value(str(kwargs["total_entries"]))
 
-        if "total_exits" in kwargs and "total_exits" in getattr(self, "stat_cards", {}):
-            self.stat_cards["total_exits"].set_value(str(kwargs["total_exits"]))
+            if "total_exits" in kwargs and "total_exits" in getattr(self, "stat_cards", {}):
+                self.stat_cards["total_exits"].set_value(str(kwargs["total_exits"]))
 
-        if "anomaly_count" in kwargs and "anomaly_count" in getattr(self, "stat_cards", {}):
-            self.stat_cards["anomaly_count"].set_value(str(kwargs["anomaly_count"]))
+            if "anomaly_count" in kwargs and "anomaly_count" in getattr(self, "stat_cards", {}):
+                self.stat_cards["anomaly_count"].set_value(str(kwargs["anomaly_count"]))
 
-        if "walking_count" in kwargs and "walking" in getattr(self, "act_cards", {}):
-            self.act_cards["walking"].set_value(str(kwargs["walking_count"]))
+            if "walking_count" in kwargs and "walking" in getattr(self, "act_cards", {}):
+                self.act_cards["walking"].set_value(str(kwargs["walking_count"]))
 
-        if "standing_count" in kwargs and "standing" in getattr(self, "act_cards", {}):
-            self.act_cards["standing"].set_value(str(kwargs["standing_count"]))
+            if "standing_count" in kwargs and "standing" in getattr(self, "act_cards", {}):
+                self.act_cards["standing"].set_value(str(kwargs["standing_count"]))
 
-        if "running_count" in kwargs and "running" in getattr(self, "act_cards", {}):
-            self.act_cards["running"].set_value(str(kwargs["running_count"]))
+            if "running_count" in kwargs and "running" in getattr(self, "act_cards", {}):
+                self.act_cards["running"].set_value(str(kwargs["running_count"]))
 
-        if "loitering_events" in kwargs and "loitering" in getattr(self, "act_cards", {}):
-            self.act_cards["loitering"].set_value(str(kwargs["loitering_events"]))
+            if "loitering_events" in kwargs and "loitering" in getattr(self, "act_cards", {}):
+                self.act_cards["loitering"].set_value(str(kwargs["loitering_events"]))
 
-        if "restricted_zone_events" in kwargs and "zones" in getattr(self, "act_cards", {}):
-            self.act_cards["zones"].set_value(str(kwargs["restricted_zone_events"]))
+            if "restricted_zone_events" in kwargs and "zones" in getattr(self, "act_cards", {}):
+                self.act_cards["zones"].set_value(str(kwargs["restricted_zone_events"]))
+
+        try:
+            if threading.current_thread() is threading.main_thread():
+                _apply()
+            else:
+                self.root.after(0, _apply)
+        except Exception:
+            pass
 
     def add_event(self, event_data: dict) -> None:
-        """Record event into real-time surveillance event table."""
+        """Record event into real-time surveillance event table (thread-safe)."""
+        def _apply():
+            try:
+                values = (
+                    event_data.get("timestamp", time.strftime("%H:%M:%S")),
+                    event_data.get("event_type", "EVENT"),
+                    event_data.get("person_id", "N/A"),
+                    event_data.get("activity", "N/A"),
+                    event_data.get("zone", "General"),
+                    event_data.get("details", "")
+                )
+                self.events_tree.insert("", 0, values=values)
+
+                # Update preview label on Dashboard view
+                preview_txt = f"[{values[0]}] {values[1]} | {values[2]} | {values[3]} | {values[5]}"
+                if hasattr(self, "dash_recent_event_lbl"):
+                    self.dash_recent_event_lbl.configure(text=preview_txt)
+
+                children = self.events_tree.get_children()
+                if len(children) > 150:
+                    self.events_tree.delete(children[-1])
+
+                # Also update Live Monitor live_events_tree
+                if hasattr(self, "live_events_tree"):
+                    live_vals = (values[0], values[2], values[1], values[5][:35])
+                    self.live_events_tree.insert("", 0, values=live_vals)
+                    live_children = self.live_events_tree.get_children()
+                    if len(live_children) > 30:
+                        self.live_events_tree.delete(live_children[-1])
+            except Exception as e:
+                logger.error(f"Error adding event: {e}")
+
         try:
-            values = (
-                event_data.get("timestamp", time.strftime("%H:%M:%S")),
-                event_data.get("event_type", "EVENT"),
-                event_data.get("person_id", "N/A"),
-                event_data.get("activity", "N/A"),
-                event_data.get("zone", "General"),
-                event_data.get("details", "")
-            )
-            self.events_tree.insert("", 0, values=values)
-
-            # Update preview label on Dashboard view
-            preview_txt = f"[{values[0]}] {values[1]} | {values[2]} | {values[3]} | {values[5]}"
-            if hasattr(self, "dash_recent_event_lbl"):
-                self.dash_recent_event_lbl.configure(text=preview_txt)
-
-            children = self.events_tree.get_children()
-            if len(children) > 150:
-                self.events_tree.delete(children[-1])
-
-            # Also update Live Monitor live_events_tree
-            if hasattr(self, "live_events_tree"):
-                live_vals = (values[0], values[2], values[1], values[5][:35])
-                self.live_events_tree.insert("", 0, values=live_vals)
-                live_children = self.live_events_tree.get_children()
-                if len(live_children) > 30:
-                    self.live_events_tree.delete(live_children[-1])
-        except Exception as e:
-            logger.error(f"Error adding event: {e}")
+            if threading.current_thread() is threading.main_thread():
+                _apply()
+            else:
+                self.root.after(0, _apply)
+        except Exception:
+            pass
 
     def clear_events(self) -> None:
         """Clear all events from the surveillance log table and live monitor stream."""

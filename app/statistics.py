@@ -84,8 +84,8 @@ class StatisticsManager:
             "gesture_counts": {},
             "face_detected_total": 0,
             "unique_track_ids": set(),
-            "track_durations": [],
-            "track_speeds": [],
+            "track_durations": deque(maxlen=500),
+            "track_speeds": deque(maxlen=500),
         }
 
     def set_session(self, session_id: int) -> None:
@@ -579,7 +579,7 @@ class StatisticsManager:
                 "gesture_counts": {},
                 "face_detected_total": 0,
                 "unique_track_ids": set(),
-                "track_durations": [],
-                "track_speeds": [],
+                "track_durations": deque(maxlen=500),
+                "track_speeds": deque(maxlen=500),
             }
             self._last_update = 0.0

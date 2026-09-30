@@ -127,8 +127,11 @@ class AnomalyDetector:
                     'timestamp': timestamp
                 })
 
-            # Prepare feature matrix for active tracks
+            # Prune features/history for dead tracks
             current_track_ids = [t.track_id for t in tracks]
+            self.prune_dead_tracks(set(current_track_ids))
+
+            # Prepare feature matrix for active tracks
             if len(current_track_ids) > 0:
                 feature_matrix = self._prepare_feature_matrix(current_track_ids)
                 if feature_matrix.shape[0] > 0:
@@ -137,9 +140,18 @@ class AnomalyDetector:
 
             # Retrain periodically
             if self._frame_count - self._last_retrain >= self._retrain_interval:
-                self._retrain()
+                self.fit_baseline()
+                self._last_retrain = self._frame_count
 
             return results
+
+    def prune_dead_tracks(self, active_track_ids: set) -> None:
+        """Remove feature history for tracks that are no longer active."""
+        stale_ids = [tid for tid in self._track_features.keys() if tid not in active_track_ids]
+        for tid in stale_ids:
+            self._track_features.pop(tid, None)
+            self._track_history.pop(tid, None)
+            self._latest_results.pop(tid, None)
 
     def _extract_features(self, track: Track, timestamp: float) -> TrackFeatures:
         """Extract features from track for anomaly detection."""

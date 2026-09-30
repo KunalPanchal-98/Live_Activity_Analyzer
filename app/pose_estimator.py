@@ -473,6 +473,14 @@ class PoseEstimator:
 
         return annotated
 
+    def prune_dead_tracks(self, active_track_ids: set) -> None:
+        """Prune posture history for tracks no longer active."""
+        stale_ids = [tid for tid in self._track_posture_history.keys() if tid not in active_track_ids]
+        for tid in stale_ids:
+            self._track_posture_history.pop(tid, None)
+        if hasattr(self, "_gesture_analyzer"):
+            self._gesture_analyzer.prune_dead_tracks(active_track_ids)
+
     def reset_track(self, track_id: int) -> None:
         """Clear posture history for track."""
         if track_id in self._track_posture_history:
@@ -621,6 +629,12 @@ class HandGestureAnalyzer:
         counts = Counter(history)
         majority_gesture, _ = counts.most_common(1)[0]
         return majority_gesture
+
+    def prune_dead_tracks(self, active_track_ids: set) -> None:
+        """Prune gesture history for tracks no longer active."""
+        stale_ids = [tid for tid in self._track_gesture_history.keys() if tid not in active_track_ids]
+        for tid in stale_ids:
+            self._track_gesture_history.pop(tid, None)
 
     def reset_track(self, track_id: int) -> None:
         """Clear gesture history for track."""

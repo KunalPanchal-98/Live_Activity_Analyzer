@@ -10,7 +10,9 @@
     "model": "yolov8n.pt",
     "confidence_threshold": 0.5,
     "iou_threshold": 0.45,
-    "classes": [0],
+    "classes": [
+      0
+    ],
     "inference_size": 640
   },
   "tracking": {
