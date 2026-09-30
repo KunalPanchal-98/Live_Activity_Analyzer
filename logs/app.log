@@ -1766,3 +1766,87 @@ Options available:
 2026-09-30 23:37:16,076 - VideoProcessor - INFO - Video processing stopped
 2026-09-30 23:37:16,076 - VideoProcessor - ERROR - Error in camera state callback: Too early to create variable: no default root window
 2026-09-30 23:37:16,076 - CameraManager - INFO - Camera stopped
+2026-10-01 00:51:07,471 - __main__ - INFO - ============================================================
+2026-10-01 00:51:07,472 - __main__ - INFO - Live Activity Analyzer Starting
+2026-10-01 00:51:07,472 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-10-01 00:51:07,472 - __main__ - INFO - ============================================================
+2026-10-01 00:51:07,502 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-10-01 00:51:07,525 - PoseEstimator - INFO - PoseEstimator loaded model: /Users/acladmin/Live_Activity_Analyzer/models/yolov8n-pose.pt
+2026-10-01 00:51:07,539 - FaceDetector - INFO - FaceDetector loaded YuNet face model
+2026-10-01 00:51:07,539 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-10-01 00:51:07,542 - root - INFO - Database initialized successfully
+2026-10-01 00:51:08,004 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-10-01 00:51:08,209 - CameraManager - INFO - Starting universal camera discovery...
+2026-10-01 00:51:08,209 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-10-01 00:51:09,908 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-10-01 00:51:10,455 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-10-01 00:51:10,463 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-10-01 00:51:13,206 - AlertManager - WARNING - ALERT [CRITICAL]: Possible fall/sudden movement: Person 1
+2026-10-01 00:51:25,154 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.104)
+2026-10-01 00:51:30,240 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.104)
+2026-10-01 00:51:35,367 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.105)
+2026-10-01 00:51:40,441 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.105)
+2026-10-01 00:51:45,633 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.107)
+2026-10-01 00:51:50,736 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.110)
+2026-10-01 00:51:55,922 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.110)
+2026-10-01 00:52:01,057 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.106)
+2026-10-01 00:52:06,220 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.107)
+2026-10-01 00:52:11,248 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.110)
+2026-10-01 00:52:16,389 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.110)
+2026-10-01 00:52:19,999 - AlertManager - WARNING - ALERT [CRITICAL]: Possible fall/sudden movement: Person 1
+2026-10-01 00:52:21,656 - AnomalyDetector - INFO - Fitted baseline with 388 samples
+2026-10-01 00:52:21,658 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 1 (score: -0.109)
+2026-10-01 00:53:30,822 - AnomalyDetector - INFO - Fitted baseline with 788 samples
+2026-10-01 00:54:28,603 - CameraManager - INFO - Camera paused
+2026-10-01 00:54:34,369 - CameraManager - INFO - Camera stopped
+2026-10-01 00:54:34,370 - CameraManager - ERROR - Camera connection lost
+2026-10-01 00:54:34,371 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:54:36,883 - CameraManager - INFO - Screenshot saved: screenshots/screenshot_2026-10-01_00-54-36.jpg
+2026-10-01 00:54:39,061 - CameraManager - INFO - Screenshot saved: screenshots/screenshot_2026-10-01_00-54-39.jpg
+2026-10-01 00:54:40,194 - CameraManager - INFO - Screenshot saved: screenshots/screenshot_2026-10-01_00-54-40.jpg
+2026-10-01 00:56:27,043 - CameraManager - INFO - Camera stopped
+2026-10-01 00:56:27,043 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:56:27,085 - CameraManager - INFO - Started video_file capture: /Users/acladmin/Downloads/Night Walk in Times Square NYC🗽🇺🇸 4K Walk in New York City #timessquare #nyc #manhattan #4kvideo.mp4 (1080x1920 @ 30fps)
+2026-10-01 00:56:27,088 - VideoProcessor - INFO - Video processing started: video - /Users/acladmin/Downloads/Night Walk in Times Square NYC🗽🇺🇸 4K Walk in New York City #timessquare #nyc #manhattan #4kvideo.mp4
+2026-10-01 00:56:43,081 - AnomalyDetector - INFO - Fitted baseline with 1000 samples
+2026-10-01 00:56:43,368 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 7 (score: -0.110)
+2026-10-01 00:56:44,016 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 4 (score: -0.128)
+2026-10-01 00:56:46,112 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 14 (score: -0.148)
+2026-10-01 00:56:48,249 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 16 (score: -0.120)
+2026-10-01 00:56:48,629 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 13 (score: -0.117)
+2026-10-01 00:56:48,631 - AlertManager - WARNING - ALERT [WARNING]: Anomalous behavior detected: Person 17 (score: -0.140)
+2026-10-01 00:56:49,215 - CameraManager - INFO - Camera paused
+2026-10-01 00:57:11,647 - CameraManager - INFO - Camera stopped
+2026-10-01 00:57:11,647 - CameraManager - ERROR - Camera connection lost
+2026-10-01 00:57:11,651 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:58:05,048 - __main__ - INFO - ============================================================
+2026-10-01 00:58:05,049 - __main__ - INFO - Live Activity Analyzer Starting
+2026-10-01 00:58:05,049 - __main__ - INFO - AI-Based Real-Time CCTV Activity and Anomaly Detection
+2026-10-01 00:58:05,049 - __main__ - INFO - ============================================================
+2026-10-01 00:58:05,083 - ObjectDetector - INFO - Loaded YOLO model: yolov8n.pt on cpu
+2026-10-01 00:58:05,114 - PoseEstimator - INFO - PoseEstimator loaded model: /Users/acladmin/Live_Activity_Analyzer/models/yolov8n-pose.pt
+2026-10-01 00:58:05,120 - FaceDetector - INFO - FaceDetector loaded YuNet face model
+2026-10-01 00:58:05,121 - AnomalyDetector - INFO - Isolation Forest model initialized
+2026-10-01 00:58:05,121 - root - INFO - Database initialized successfully
+2026-10-01 00:58:05,662 - app.gui - INFO - ApplicationGUI initialized successfully
+2026-10-01 00:58:05,944 - CameraManager - INFO - Starting universal camera discovery...
+2026-10-01 00:58:05,944 - CameraDiscovery - INFO - Scanning up to 5 devices on darwin (AVFoundation)...
+2026-10-01 00:58:07,702 - CameraDiscovery - INFO - Discovery complete. Found 1 usable camera(s).
+2026-10-01 00:58:08,200 - CameraManager - INFO - Started webcam capture: 0 (1280x720 @ 30fps)
+2026-10-01 00:58:08,213 - VideoProcessor - INFO - Video processing auto-started with camera 0
+2026-10-01 00:58:23,472 - CameraManager - INFO - Camera paused
+2026-10-01 00:58:27,899 - CameraManager - INFO - Camera stopped
+2026-10-01 00:58:27,900 - CameraManager - ERROR - Camera connection lost
+2026-10-01 00:58:27,901 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:58:42,093 - CameraManager - INFO - Camera stopped
+2026-10-01 00:58:42,093 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:58:42,121 - CameraManager - INFO - Started video_file capture: /Users/acladmin/Downloads/Night Walk in Times Square NYC🗽🇺🇸 4K Walk in New York City #timessquare #nyc #manhattan #4kvideo.mp4 (1080x1920 @ 30fps)
+2026-10-01 00:58:42,125 - VideoProcessor - INFO - Video processing started: video - /Users/acladmin/Downloads/Night Walk in Times Square NYC🗽🇺🇸 4K Walk in New York City #timessquare #nyc #manhattan #4kvideo.mp4
+2026-10-01 00:59:40,490 - CameraManager - INFO - Camera stopped
+2026-10-01 00:59:40,496 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:59:40,554 - CameraManager - INFO - Camera stopped
+2026-10-01 00:59:40,554 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:59:40,554 - __main__ - INFO - Application closed normally
+2026-10-01 00:59:40,702 - CameraManager - INFO - Camera stopped
+2026-10-01 00:59:40,703 - VideoProcessor - INFO - Video processing stopped
+2026-10-01 00:59:40,703 - CameraManager - INFO - Camera stopped
