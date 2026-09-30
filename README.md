@@ -615,11 +615,6 @@ The screenshot path is stored in the `events` table for reference.
 
 ---
 
-## License
-
-
----
-
 *Built with Python · OpenCV · YOLOv8 · Scikit-learn · Tkinter · SQLite*
 ---
 
