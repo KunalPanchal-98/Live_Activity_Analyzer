@@ -617,13 +617,6 @@ The screenshot path is stored in the `events` table for reference.
 
 ## License
 
-This project is developed for academic purposes as a B.Tech CSE project.
-
----
-
-## License
-
-This project is developed for academic purposes as a B.Tech CSE project.
 
 ---
 
